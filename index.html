@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>오늘의 응원 한마디</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #fff7ec;
+      color: #2b2b2b;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    main { width: 100%; max-width: 480px; }
+    h1 { font-size: 2rem; text-align: center; margin: 16px 0 28px; }
+    label { display: block; font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; }
+    .hint { font-size: 1rem; color: #6b6b6b; margin: 0 0 12px; }
+    input {
+      width: 100%;
+      font-size: 1.3rem;
+      padding: 14px 16px;
+      border: 2px solid #e2c9a6;
+      border-radius: 12px;
+      background: #fff;
+    }
+    input:focus { outline: none; border-color: #f08a24; }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      padding: 18px;
+      border: none;
+      border-radius: 14px;
+      background: #f08a24;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled { background: #c9a98a; cursor: wait; }
+    #result {
+      margin-top: 28px;
+      min-height: 140px;
+      padding: 24px 20px;
+      border-radius: 16px;
+      background: #fff;
+      border: 2px solid #f3dcc0;
+      font-size: 1.4rem;
+      line-height: 1.6;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    #result .name { font-weight: 700; color: #d06c0a; margin-bottom: 8px; }
+    #result.loading { color: #6b6b6b; }
+    #result.error { color: #b3261e; border-color: #f2b8b5; background: #fff5f4; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>오늘의 응원 한마디</h1>
+
+    <label for="nickname">닉네임</label>
+    <p class="hint">공개해도 괜찮은 닉네임만 적어 주세요. 비우면 "여러분"으로 불러요.</p>
+    <input id="nickname" type="text" maxlength="20" placeholder="예: 햇살" autocomplete="off">
+
+    <button id="cheer" type="button">응원 받기</button>
+
+    <section id="result" aria-live="polite">버튼을 누르면 응원 한마디가 나타나요.</section>
+  </main>
+
+  <script>
+    const input = document.getElementById("nickname");
+    const button = document.getElementById("cheer");
+    const result = document.getElementById("result");
+
+    function show(state, lines) {
+      result.className = state;
+      result.replaceChildren();
+      for (const [text, cls] of lines) {
+        const p = document.createElement("div");
+        p.textContent = text;
+        if (cls) p.className = cls;
+        result.appendChild(p);
+      }
+    }
+
+    async function getCheer() {
+      const name = input.value.trim();
+      button.disabled = true;
+      show("loading", [["응원 문장을 불러오는 중이에요..."]]);
+
+      try {
+        const res = await fetch("/api/message?name=" + encodeURIComponent(name), { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (typeof data.message !== "string" || typeof data.name !== "string") {
+          throw new Error("응답 형식 오류");
+        }
+        show("", [[data.name + "님,", "name"], [data.message]]);
+      } catch (err) {
+        show("error", [
+          ["응원 문장을 받아오지 못했어요."],
+          ["서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요. (" + err.message + ")"],
+        ]);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    button.addEventListener("click", getCheer);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") getCheer(); });
+  </script>
+</body>
+</html>
